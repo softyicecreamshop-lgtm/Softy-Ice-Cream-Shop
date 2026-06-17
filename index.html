@@ -1,1 +1,1132 @@
-html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <title>SoftServe Pro | Ice Cream Sales Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f0f8ff;
+            color: #0f172a;
+            padding: 18px 16px 48px 16px;
+        }
+        .app-container { max-width: 650px; margin: 0 auto; position: relative; }
+        .card {
+            background: #ffffff;
+            border-radius: 28px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.03), 0 2px 6px rgba(0,0,0,0.05);
+            padding: 18px 16px;
+            margin-bottom: 24px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .stat-card {
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 14px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.05);
+            border: 1px solid #e0f2fe;
+        }
+        .stat-label { font-size: 13px; font-weight: 500; color: #475569; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .stat-value { font-size: 28px; font-weight: 800; color: #1e293b; line-height: 1.2; }
+        .revenue-value { color: #0891b2; }
+        .pending-value { color: #db2777; }
+        .no-payment-value { color: #94a3b8; }
+        .date-badge { background: #cffafe; padding: 6px 14px; border-radius: 40px; font-size: 14px; font-weight: 500; display: inline-block; margin-bottom: 8px; color: #0e7490; }
+        .filter-row { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+        .filter-input { flex: 1; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 40px; font-size: 14px; font-family: inherit; background: white; }
+        .filter-btn { background: #db2777; color: white; padding: 10px 18px; border-radius: 40px; font-weight: 500; font-size: 13px; border: none; cursor: pointer; transition: 0.2s; }
+        .filter-btn:hover { opacity: 0.9; }
+        .filter-btn-outline { background: white; border: 1px solid #e2e8f0; padding: 10px 16px; border-radius: 40px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+        .search-bar { width: 100%; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 40px; font-size: 14px; margin-bottom: 12px; }
+        .payment-filter { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .payment-filter-btn { padding: 6px 12px; border-radius: 40px; font-size: 12px; background: #f1f5f9; cursor: pointer; transition: 0.1s; }
+        .payment-filter-btn.active { background: #db2777; color: white; }
+        .cart-item {
+            background: #f9fafb;
+            border-radius: 20px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-left: 4px solid #db2777;
+        }
+        .item-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .item-name { font-weight: 700; font-size: 16px; }
+        .price-edit-input { width: 70px; padding: 4px 8px; border: 1px solid #e2e8f0; border-radius: 20px; font-size: 12px; text-align: center; }
+        .qty-controls { display: flex; align-items: center; gap: 12px; background: white; padding: 4px 12px; border-radius: 40px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .qty-btn { background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 40px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.1s; }
+        .qty-btn:active { transform: scale(0.96); background: #e2e8f0; }
+        .grand-total { font-weight: 800; font-size: 18px; text-align: right; border-top: 1px dashed #cbd5e1; padding-top: 12px; margin-top: 8px; }
+        button { border: none; background: none; cursor: pointer; font-family: inherit; }
+        .btn-primary { background: #db2777; color: white; font-weight: 600; padding: 14px 18px; border-radius: 60px; width: 100%; font-size: 16px; transition: 0.2s; cursor: pointer; }
+        .btn-primary:active { transform: scale(0.97); background: #be185d; }
+        .btn-outline { background: white; border: 1px solid #e2e8f0; padding: 10px 16px; border-radius: 40px; font-weight: 500; cursor: pointer; }
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .menu-section { 
+            border-radius: 20px; 
+            padding: 16px; 
+            margin-bottom: 16px;
+        }
+        .menu-section:last-child { margin-bottom: 0; }
+        .menu-section-title { 
+            font-size: 18px; 
+            font-weight: 700; 
+            margin-bottom: 12px; 
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .menu-section:nth-child(1) { background: #f0f9ff; }
+        .menu-section:nth-child(1) .menu-section-title { color: #0891b2; }
+        .menu-section:nth-child(2) { background: #fdf2f8; }
+        .menu-section:nth-child(2) .menu-section-title { color: #db2777; }
+        .menu-section:nth-child(3) { background: #eff6ff; }
+        .menu-section:nth-child(3) .menu-section-title { color: #3b82f6; }
+        .menu-card { 
+            background: white; 
+            border-radius: 16px; 
+            overflow: hidden; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06); 
+            transition: transform 0.2s, box-shadow 0.2s; 
+        }
+        .menu-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .menu-img { width: 100%; height: auto; aspect-ratio: 1/1; object-fit: cover; background: #f1f5f9; }
+        .menu-info { padding: 10px; text-align: center; }
+        .menu-info strong { font-size: 0.85rem; display: block; margin-bottom: 4px; }
+        .price-badge { 
+            background: #cffafe; 
+            padding: 3px 10px; 
+            border-radius: 20px; 
+            font-size: 12px; 
+            font-weight: 600; 
+            color: #0e7490; 
+            display: inline-block; 
+            margin: 4px 0 8px 0; 
+        }
+        .add-cart-btn { 
+            background: #0891b2; 
+            color: white; 
+            padding: 8px 12px; 
+            border-radius: 40px; 
+            font-weight: 600; 
+            font-size: 12px; 
+            cursor: pointer; 
+            border: none; 
+            transition: 0.1s; 
+            width: 100%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 6px; 
+        }
+        .add-cart-btn:active { transform: scale(0.96); opacity: 0.8; }
+        .add-cart-btn.pink { background: #db2777; }
+        .add-cart-btn.pink:active { background: #be185d; }
+        .add-cart-btn.cyan { background: #0891b2; }
+        .add-cart-btn.cyan:active { background: #0e7490; }
+        .add-cart-btn.blue { background: #3b82f6; }
+        .add-cart-btn.blue:active { background: #2563eb; }
+        .table-wrapper { overflow-x: auto; margin-top: 12px; border-radius: 20px; border: 1px solid #f1f5f9; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 580px; }
+        .data-table th { background: #f8fafc; padding: 12px 10px; text-align: left; font-weight: 600; color: #334155; border-bottom: 1px solid #e2e8f0; }
+        .data-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .action-btn { background: #f1f5f9; border-radius: 30px; padding: 6px 10px; margin: 0 3px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: 0.1s; }
+        .delete-btn { background: #fee2e2; color: #b91c1c; }
+        .edit-btn { background: #e0f2fe; color: #0369a1; }
+        .section-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: #0e7490; }
+        .toast { position: fixed; bottom: 25px; left: 20px; right: 20px; max-width: 400px; margin: 0 auto; background: #1e293b; color: white; padding: 12px 18px; border-radius: 60px; font-weight: 500; text-align: center; z-index: 1000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .badge { background: #cffafe; padding: 4px 10px; border-radius: 30px; font-size: 12px; color: #0e7490; }
+        i { margin-right: 4px; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(4px); }
+        .modal-content { background: white; border-radius: 32px; padding: 24px; max-width: 450px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-content input, .modal-content select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #e2e8f0; border-radius: 40px; font-size: 14px; }
+        .modal-buttons { display: flex; gap: 12px; margin-top: 20px; }
+        .modal-buttons button { flex: 1; padding: 12px; border-radius: 40px; font-weight: 600; cursor: pointer; transition: 0.1s; }
+        .accordion-header { cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+        .accordion-icon { transition: transform 0.3s ease; }
+        .accordion-icon.rotated { transform: rotate(180deg); }
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .accordion-content.open { max-height: 800px; }
+        .summary-list { background: #f8fafc; border-radius: 20px; padding: 12px; margin-top: 12px; }
+        .summary-item { font-size: 13px; padding: 6px 0; border-bottom: 1px dashed #e2e8f0; display: flex; justify-content: space-between; }
+        .customer-input { margin: 12px 0; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 40px; width: 100%; font-family: inherit; }
+        .payment-options { display: flex; gap: 12px; margin: 12px 0; align-items: center; flex-wrap: wrap; }
+        .payment-option { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 16px; border-radius: 40px; background: #f1f5f9; transition: 0.1s; }
+        .payment-option input { margin: 0; width: 18px; height: 18px; cursor: pointer; }
+        .cart-order-card { border-radius: 20px; padding: 14px; margin-bottom: 12px; border-left: 4px solid #0891b2; }
+        .cart-order-card.cash-bg { background: #e0f2fe; }
+        .cart-order-card.online-bg { background: #fce7f3; }
+        .cart-order-card.pending-bg { background: #fef3c7; }
+        .cart-order-card.nopayment-bg { background: #f5f5f5; }
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+        .page-btn { background: #f1f5f9; padding: 8px 16px; border-radius: 40px; font-size: 13px; font-weight: 500; cursor: pointer; }
+        .page-btn.active { background: #db2777; color: white; }
+        .page-nav-btn { background: #f1f5f9; padding: 8px 16px; border-radius: 40px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+        .tabs-container { display: flex; gap: 4px; margin-bottom: 20px; background: #f1f5f9; padding: 4px; border-radius: 60px; }
+        .tab-btn { flex: 1; padding: 12px 8px; background: transparent; border-radius: 40px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s; text-align: center; color: #64748b; }
+        .tab-btn.active { background: #db2777; color: white; box-shadow: 0 2px 8px rgba(219,39,119,0.3); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .graph-container { margin-top: 24px; background: white; border-radius: 20px; padding: 16px; }
+        .graph-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #1e293b; }
+        .month-picker { display: flex; gap: 12px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+        .month-select, .year-select { padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 40px; font-size: 14px; background: white; }
+        canvas { max-height: 300px; width: 100%; height: 300px; }
+        .heatmap-container { overflow-x: auto; }
+        .heatmap-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .heatmap-table th, .heatmap-table td { border: 1px solid #e2e8f0; padding: 6px; text-align: center; }
+        .heatmap-cell { background: #f8fafc; transition: 0.1s; cursor: pointer; }
+        .scroll-to-cart-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #db2777;
+            color: white;
+            font-size: 24px;
+            box-shadow: 0 4px 16px rgba(219,39,119,0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 500;
+            border: none;
+            opacity: 1;
+            transform: scale(1);
+        }
+        .scroll-to-cart-btn:hover { transform: scale(1.05); box-shadow: 0 6px 24px rgba(219,39,119,0.5); }
+        .scroll-to-cart-btn:active { transform: scale(0.92); }
+        .scroll-to-cart-btn.hidden { opacity: 0; transform: scale(0.8); pointer-events: none; }
+        .btn-group-order { display: flex; gap: 12px; margin-top: 12px; }
+        .btn-group-order button { flex: 1; }
+        .btn-secondary { background: #64748b; color: white; font-weight: 600; padding: 14px 18px; border-radius: 60px; font-size: 16px; transition: 0.2s; cursor: pointer; }
+        .btn-secondary:active { transform: scale(0.97); background: #475569; }
+        .kept-aside-container {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding: 8px 4px 16px 4px;
+            margin-bottom: 16px;
+            scrollbar-width: thin;
+            -webkit-overflow-scrolling: touch;
+        }
+        .kept-aside-container::-webkit-scrollbar { height: 4px; }
+        .kept-aside-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .kept-aside-item {
+            flex: 0 0 180px;
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 12px 14px;
+            border-left: 4px solid #94a3b8;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .kept-aside-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .kept-aside-item .aside-header { font-weight: 600; font-size: 12px; color: #475569; margin-bottom: 6px; }
+        .kept-aside-item .aside-items { font-size: 11px; color: #64748b; flex: 1; }
+        .kept-aside-item .aside-total { font-weight: 700; font-size: 14px; color: #0f172a; margin-top: 6px; }
+        .kept-aside-empty { color: #94a3b8; font-size: 13px; padding: 8px 0; text-align: center; width: 100%; }
+        .menu-manager-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; background: linear-gradient(135deg, #cffafe, #fce7f3); padding: 12px 16px; border-radius: 28px; }
+        .menu-manager-bar .selected-date { font-weight: 600; color: #db2777; background: white; padding: 6px 14px; border-radius: 40px; font-size: 13px; }
+        .manage-menu-btn { background: #db2777; color: white; padding: 10px 20px; border-radius: 40px; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .manage-menu-btn:active { transform: scale(0.96); }
+        .menu-item-checkbox { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 20px; background: #f8fafc; transition: 0.1s; }
+        .menu-item-checkbox:hover { background: #f1f5f9; }
+        .menu-item-checkbox input { width: 20px; height: 20px; cursor: pointer; }
+        .select-all-btn { background: #f1f5f9; padding: 8px 16px; border-radius: 40px; font-size: 12px; font-weight: 500; cursor: pointer; margin-bottom: 12px; display: inline-block; }
+        .topping-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .topping-tab {
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 600;
+            background: white;
+            cursor: pointer;
+            transition: 0.2s;
+            border: 2px solid #e2e8f0;
+            flex: 1;
+            text-align: center;
+            min-width: 80px;
+        }
+        .topping-tab.active {
+            background: #db2777;
+            color: white;
+            border-color: #db2777;
+        }
+        .topping-tab:hover { transform: scale(0.96); }
+        .topping-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .topping-item { 
+            background: white; 
+            border-radius: 16px; 
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            transition: 0.2s;
+        }
+        .topping-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .topping-item .topping-img { 
+            width: 100%; 
+            aspect-ratio: 1/1; 
+            object-fit: cover; 
+            background: #f1f5f9; 
+        }
+        .topping-item .topping-info { padding: 8px; text-align: center; }
+        .topping-item .topping-name { font-size: 11px; font-weight: 600; display: block; margin-bottom: 2px; }
+        .topping-item .topping-price { font-size: 11px; color: #db2777; font-weight: 600; display: block; margin-bottom: 6px; }
+        .topping-item .add-cart-btn { font-size: 11px; padding: 6px; }
+        .color-cyan { color: #0891b2; }
+        .color-pink { color: #db2777; }
+        .color-blue { color: #3b82f6; }
+        .bg-cyan { background: #cffafe; }
+        .bg-pink { background: #fce7f3; }
+        .bg-blue { background: #dbeafe; }
+        @media (max-width: 480px) {
+            .menu-grid { gap: 8px; }
+            .menu-info { padding: 8px; }
+            .menu-info strong { font-size: 0.75rem; }
+            .price-badge { font-size: 10px; padding: 2px 8px; }
+            .add-cart-btn { font-size: 10px; padding: 6px 8px; }
+            .scroll-to-cart-btn { width: 50px; height: 50px; font-size: 20px; bottom: 40px; left: 20px; right: auto; }
+            .kept-aside-item { flex: 0 0 150px; padding: 10px; }
+            .btn-group-order { flex-direction: column; gap: 8px; }
+            .topping-grid { grid-template-columns: 1fr 1fr; }
+            .menu-section { padding: 12px; }
+            .menu-section-title { font-size: 15px; }
+            .topping-tab { font-size: 12px; padding: 6px 12px; min-width: 60px; }
+            .topping-item .topping-name { font-size: 10px; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="card">
+        <div class="accordion-header" id="summaryAccordionHeader">
+            <div class="flex-between" style="width:100%;"><span class="date-badge" id="currentDateDisplay"></span><i class="fas fa-chart-line" style="color:#db2777;"></i><i class="fas fa-chevron-down accordion-icon" id="accordionIcon"></i></div>
+        </div>
+        <div class="accordion-content" id="accordionContent">
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-label"><i class="fas fa-shopping-cart color-cyan"></i> Total Sales</div><div class="stat-value" id="totalSalesCount">0</div></div>
+                <div class="stat-card"><div class="stat-label"><i class="fas fa-rupee-sign color-cyan"></i> Total Revenue</div><div class="stat-value revenue-value" id="totalRevenueAmount">₹0</div></div>
+                <div class="stat-card"><div class="stat-label"><i class="fas fa-money-bill-wave color-cyan"></i> Cash Payment</div><div class="stat-value revenue-value" id="cashPaymentTotal">₹0</div></div>
+                <div class="stat-card"><div class="stat-label"><i class="fas fa-credit-card color-cyan"></i> Online Payment</div><div class="stat-value revenue-value" id="onlinePaymentTotal">₹0</div></div>
+                <div class="stat-card"><div class="stat-label"><i class="fas fa-clock color-pink"></i> Pending Payment</div><div class="stat-value pending-value" id="pendingPaymentTotal">₹0</div></div>
+                <div class="stat-card"><div class="stat-label"><i class="fas fa-ban color-cyan"></i> No Payment</div><div class="stat-value no-payment-value" id="noPaymentTotal">₹0</div></div>
+            </div>
+            <div class="filter-row"><input type="date" id="filterFromDate" class="filter-input"><input type="date" id="filterToDate" class="filter-input"><button id="applyDateFilterBtn" class="filter-btn"><i class="fas fa-filter"></i> Filter</button><button id="resetFilterBtn" class="filter-btn-outline"><i class="fas fa-undo-alt"></i> Reset</button></div>
+        </div>
+    </div>
+    <div class="tabs-container"><button class="tab-btn active" data-tab="tab1">🍦 Order</button><button class="tab-btn" data-tab="tab2">📜 Sales</button><button class="tab-btn" data-tab="tab3">📊 Performance</button></div>
+    <div id="tab1" class="tab-content active">
+        <div class="card" id="cartSection">
+            <div class="flex-between"><h3 style="color:#0e7490;"><i class="fas fa-shopping-cart color-pink"></i> Current Order</h3><span id="cartItemCount" class="badge">0 items</span></div>
+            
+            <!-- Kept Aside Orders -->
+            <div id="keptAsideContainer" class="kept-aside-container"></div>
+            
+            <input type="text" id="customerNameInput" class="customer-input" placeholder="Customer Name (Optional)">
+            <div class="payment-options"><label class="payment-option"><input type="radio" name="paymentMode" value="cash"> <i class="fas fa-money-bill-wave color-cyan"></i> Cash</label><label class="payment-option"><input type="radio" name="paymentMode" value="online"> <i class="fas fa-credit-card color-pink"></i> Online</label><label class="payment-option"><input type="radio" name="paymentMode" value="pending"> <i class="fas fa-clock color-pink"></i> Pending</label><label class="payment-option"><input type="radio" name="paymentMode" value="nopayment"> <i class="fas fa-ban color-cyan"></i> No Payment</label></div>
+            <div id="cartItemsContainer" style="margin-top: 14px;"></div>
+            <div id="cartGrandTotal" class="grand-total">Grand Total: ₹0</div>
+            <div id="cartSummaryBreakdown" class="summary-list" style="display:none;"></div>
+            <div class="btn-group-order">
+                <button class="btn-secondary" id="keepAsideBtn"><i class="fas fa-archive"></i> Keep Aside</button>
+                <button class="btn-primary" id="saveOrderBtn"><i class="fas fa-save"></i> Save Order</button>
+            </div>
+        </div>
+        <div class="card">
+            <div class="menu-manager-bar">
+                <i class="fas fa-calendar-alt color-pink"></i>
+                <span class="selected-date" id="currentMenuDate"></span>
+                <button id="manageMenuBtn" class="manage-menu-btn"><i class="fas fa-edit"></i> Select Today's Items</button>
+            </div>
+            <div id="menuContainer"></div>
+        </div>
+    </div>
+    <div id="tab2" class="tab-content"><div class="card"><div class="section-title"><i class="fas fa-shopping-cart color-pink"></i> Cart Orders</div><input type="text" id="cartSearchInput" class="search-bar" placeholder="🔍 Search by customer name or item..."><div class="payment-filter" id="paymentFilterContainer"><button class="payment-filter-btn active" data-filter="all">All</button><button class="payment-filter-btn" data-filter="cash">💵 Cash</button><button class="payment-filter-btn" data-filter="online">💳 Online</button><button class="payment-filter-btn" data-filter="pending">⏳ Pending</button><button class="payment-filter-btn" data-filter="nopayment">🚫 No Payment</button></div><div id="cartHistoryContainer"></div><div id="cartPagination" class="pagination"></div></div></div>
+    <div id="tab3" class="tab-content"><div class="card"><div class="section-title"><i class="fas fa-chart-pie color-pink"></i> Ice Cream Summary</div><div class="table-wrapper"><table class="data-table" id="snackSummaryTable"><thead><tr><th>Item</th><th>Quantity</th><th>Revenue</th></tr></thead><tbody id="snackSummaryBody"><tr><td colspan="3">No data</td></tr></tbody></table></div></div><div class="card"><div class="section-title"><i class="fas fa-chart-line color-pink"></i> Performance Graphs</div><div class="month-picker"><select id="monthSelect" class="month-select"></select><select id="yearSelect" class="year-select"></select><button id="refreshGraphsBtn" class="filter-btn">Update Graphs</button></div><div class="graph-container"><div class="graph-title"><i class="fas fa-rupee-sign color-cyan"></i> Total Revenue (Day-wise)</div><canvas id="revenueChart" style="height:300px;"></canvas></div><div class="graph-container" style="margin-top:20px;"><div class="graph-title"><i class="fas fa-chart-bar color-cyan"></i> Sales Count (Day-wise)</div><canvas id="combinedChart" style="height:300px;"></canvas></div><div class="graph-container" style="margin-top:20px;"><div class="graph-title"><i class="fas fa-clock color-pink"></i> Sales Heatmap (5 PM - 1 AM)</div><div class="heatmap-container"><table class="heatmap-table" id="heatmapTable"></table></div></div></div></div>
+    
+    <!-- Scroll to Cart Button -->
+    <button class="scroll-to-cart-btn" id="scrollToCartBtn" aria-label="Scroll to cart">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+</div>
+<div id="toastMsg" class="toast"></div>
+<script>
+    // Firebase Configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyA9lcaEUztt8j1q44P0FrC3PKQ58sseV9o",
+        authDomain: "softy-ice-cream-shop.firebaseapp.com",
+        projectId: "softy-ice-cream-shop",
+        storageBucket: "softy-ice-cream-shop.firebasestorage.app",
+        messagingSenderId: "1075750027667",
+        appId: "1:1075750027667:web:d8090383719ba25e18a866",
+        measurementId: "G-DCQ6FY8GSS"
+    };
+    firebase.initializeApp(firebaseConfig); 
+    const database = firebase.database(); 
+    const salesRef = database.ref('sales');
+    
+    // Menu Items Definition with 1:1 Images
+    const CLASSIC_CONES = [
+        { id: "vanilla_cone", name: "Vanilla Cone", price: 25, image: "https://lh3.googleusercontent.com/d/1T9rSN4VqH5mFVA2ZNIHEn8MxbRTN2YWX" },
+        { id: "chocolate_cone", name: "Chocolate Cone", price: 25, image: "https://lh3.googleusercontent.com/d/1GGfsqhqL_Tu16wEjy_gY8PbASLmo9Zpj" },
+        { id: "mix_choco_vanilla_cone", name: "Mix Choco Vanilla", price: 25, image: "https://lh3.googleusercontent.com/d/1mUxQfcL3EPqY_RmHoXkzTYRWr58dDxC-" }
+    ];
+    
+    const TOPPINGS = [
+        { id: "orio", name: "Orio Choco Chips" },
+        { id: "sprinkles", name: "Sprinkles" },
+        { id: "choco_chips", name: "Choco Chips" },
+        { id: "white_choco_chips", name: "White Choco Chips" },
+        { id: "dark_choco_chips", name: "Dark Choco Chips" }
+    ];
+    const CONE_TYPES = ['Vanilla', 'Chocolate', 'Mix'];
+    const TOPPING_PRICE = 40;
+    
+    // Generate all topping items with 1:1 images
+    const TOPPING_ITEMS = [];
+    // Please replace these placeholder image URLs with your actual image links
+    const toppingImageLinks = {
+        'vanilla_orio': 'https://lh3.googleusercontent.com/d/1M-2fnfUkoUceO-3DRuMGHBFSdtv3m9F-',
+        'vanilla_sprinkles': 'https://lh3.googleusercontent.com/d/1zKp6WuJiMg8bBKWzk_SiWkJE2DSTyImO',
+        'vanilla_choco_chips': 'https://lh3.googleusercontent.com/d/1XwxjSPfNrtvdCvnPOkWDfKpyfyse2wog',
+        'vanilla_white_choco_chips': 'https://lh3.googleusercontent.com/d/1RS6NJaNXZLSL4DLKeMXFqZOvk7kquBq6',
+        'vanilla_dark_choco_chips': 'https://lh3.googleusercontent.com/d/1p2sAdKGuv4DPx3XZVxl9ROSCL1TNJgSW',
+        'chocolate_orio': 'https://lh3.googleusercontent.com/d/1KIyJy7J383eYILKw5jG1bMeUNMtQ85af',
+        'chocolate_sprinkles': 'https://lh3.googleusercontent.com/d/1His3smBIyXoAdEKWHXyA0i8dOX10iDLo',
+        'chocolate_choco_chips': 'https://lh3.googleusercontent.com/d/1nazbIeheKpvbsocwszgZIAEylSB5zHHm',
+        'chocolate_white_choco_chips': 'https://lh3.googleusercontent.com/d/1v0CWU-UCDujYT90NSWYPfUjGbe6jmoeA',
+        'chocolate_dark_choco_chips': 'https://lh3.googleusercontent.com/d/1Do0UTAxEUJJ9Xbj_-_X7RvFBp69-qSyc',
+        'mix_orio': 'https://lh3.googleusercontent.com/d/1t9pJMHaSRpIcKkH4VUc6CoRDD_sYnp4b',
+        'mix_sprinkles': 'https://lh3.googleusercontent.com/d/1opTwyMa7B-M7bwPIbjVKGByqca9XhZ3y',
+        'mix_choco_chips': 'https://lh3.googleusercontent.com/d/1H4vymlCumihlflm2l5Wil3bf6pI-EjOq',
+        'mix_white_choco_chips': 'https://lh3.googleusercontent.com/d/1B7nAzFhvcB3ZY1PuA81hKbRfoaq0J8Gk',
+        'mix_dark_choco_chips': 'https://lh3.googleusercontent.com/d/1ErnfjYPHifZwBoXcyniyZuc9mdD4c4zO'
+    };
+    
+    CONE_TYPES.forEach(cone => {
+        TOPPINGS.forEach((topping) => {
+            const imageKey = `${cone.toLowerCase()}_${topping.id}`;
+            TOPPING_ITEMS.push({
+                id: imageKey,
+                name: `${cone} Cone with ${topping.name}`,
+                price: TOPPING_PRICE,
+                image: toppingImageLinks[imageKey] || `https://placehold.co/400x400/f1f5f9/94a3b8?text=${cone}+${topping.name.split(' ')[0]}`,
+                coneType: cone.toLowerCase(),
+                toppingName: topping.name
+            });
+        });
+    });
+    
+    const WAFFLE_CONES = [
+        { id: "vanilla_waffle", name: "Vanilla Waffle", price: 60, image: "https://lh3.googleusercontent.com/d/1il0XJ0WTcU0oHwdlUhW0Xg9cIvfLgP2j" },
+        { id: "chocolate_waffle", name: "Chocolate Waffle", price: 60, image: "https://lh3.googleusercontent.com/d/1lgQww0FU73kZ656XZn29hd69vpgrwOuM" },
+        { id: "mix_choco_waffle", name: "Mix Choco Waffle", price: 60, image: "https://lh3.googleusercontent.com/d/1tZvHKRGMsHpkzOQdNtOfGL9xz1B_qPUO" }
+    ];
+    
+    let activeItems = {
+        classic: [...CLASSIC_CONES],
+        toppings: [...TOPPING_ITEMS],
+        waffle: [...WAFFLE_CONES]
+    };
+    let cart = [], allSales = [], currentFilter = { fromDate: "", toDate: "" }, cartHistoryPage = 1, currentPaymentFilter = "all", currentSearchTerm = "";
+    const CART_PAGE_SIZE = 10; 
+    let revenueChart, combinedChart;
+    let keptAsideOrders = [];
+    let currentToppingTab = 'vanilla';
+    
+    function getTodayDate() { const today = new Date(); return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`; }
+    function formatDateForDisplay(dateStr) { if(!dateStr) return ''; const parts = dateStr.split('-'); return `${parts[2]}/${parts[1]}/${parts[0]}`; }
+    function showToast(msg, isErr = false) { const t = document.getElementById('toastMsg'); t.innerText = msg; t.style.backgroundColor = isErr ? '#b91c1c' : '#0e7490'; t.style.opacity = '1'; setTimeout(() => t.style.opacity = '0', 2300); }
+    function getISTDateTime() { const now = new Date(), offset = 5.5 * 60 * 60 * 1000, d = new Date(now.getTime() + offset); return { date: `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`, time: `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}:${String(d.getUTCSeconds()).padStart(2,'0')}` }; }
+    function formatDateDMY(dateStr) { if(!dateStr) return ''; const parts = dateStr.split('-'); return `${parts[2]}-${parts[1]}-${parts[0]}`; }
+    
+    function loadDailyMenu() { 
+        const today = getTodayDate(); 
+        const stored = localStorage.getItem(`dailyMenu_${today}`); 
+        if(stored) {
+            const parsed = JSON.parse(stored);
+            activeItems = parsed;
+        } else {
+            activeItems = {
+                classic: [...CLASSIC_CONES],
+                toppings: [...TOPPING_ITEMS],
+                waffle: [...WAFFLE_CONES]
+            };
+        }
+        document.getElementById('currentMenuDate').innerHTML = `<i class="fas fa-calendar-day"></i> ${formatDateForDisplay(today)}`; 
+        renderMenu(); 
+    }
+    
+    function saveDailyMenu(itemsList) { 
+        const today = getTodayDate(); 
+        localStorage.setItem(`dailyMenu_${today}`, JSON.stringify(itemsList)); 
+        activeItems = itemsList; 
+        showToast(`Today's menu updated!`); 
+        renderMenu(); 
+    }
+    
+    function openMenuManager() {
+        const modal = document.createElement('div'); 
+        modal.className = 'modal-overlay';
+        const today = getTodayDate();
+        const allItems = [...CLASSIC_CONES, ...TOPPING_ITEMS, ...WAFFLE_CONES];
+        const activeFlat = [...activeItems.classic, ...activeItems.toppings, ...activeItems.waffle];
+        
+        modal.innerHTML = `<div class="modal-content"><h3 style="color:#0e7490;"><i class="fas fa-calendar-alt color-pink"></i> Select Menu for ${formatDateForDisplay(today)}</h3><div style="margin: 12px 0;"><button id="selectAllBtn" class="select-all-btn"><i class="fas fa-check-double"></i> Select All</button> <button id="deselectAllBtn" class="select-all-btn"><i class="fas fa-times"></i> Deselect All</button></div><div style="max-height:350px;overflow-y:auto;">${allItems.map(s => `<label class="menu-item-checkbox" style="display:flex;align-items:center;gap:12px;padding:10px;border-radius:16px;margin-bottom:8px;background:#f8fafc;"><input type="checkbox" value="${s.id}" ${activeFlat.some(a=>a.id===s.id) ? 'checked' : ''}> <strong>${s.name}</strong> <span style="margin-left:auto;font-size:12px;color:#64748b;">₹${s.price}</span></label>`).join('')}</div><div class="modal-buttons"><button id="saveMenuBtn" style="background:#db2777;color:white;">Save Today's Menu</button><button id="cancelMenuBtn" style="background:#f1f5f9;">Cancel</button></div></div>`;
+        document.body.appendChild(modal);
+        document.getElementById('selectAllBtn').onclick = () => { modal.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true); };
+        document.getElementById('deselectAllBtn').onclick = () => { modal.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false); };
+        document.getElementById('saveMenuBtn').onclick = () => { 
+            const selectedIds = [...modal.querySelectorAll('input:checked')].map(cb => cb.value); 
+            const newClassic = CLASSIC_CONES.filter(s => selectedIds.includes(s.id));
+            const newToppings = TOPPING_ITEMS.filter(s => selectedIds.includes(s.id));
+            const newWaffle = WAFFLE_CONES.filter(s => selectedIds.includes(s.id));
+            saveDailyMenu({ classic: newClassic, toppings: newToppings, waffle: newWaffle }); 
+            document.body.removeChild(modal); 
+        };
+        document.getElementById('cancelMenuBtn').onclick = () => document.body.removeChild(modal);
+    }
+    
+    function renderMenu() {
+        const container = document.getElementById('menuContainer');
+        if (!container) return;
+        container.innerHTML = '';
+        
+        // Section 1: Classic Cones
+        if (activeItems.classic && activeItems.classic.length > 0) {
+            const sectionDiv = document.createElement('div');
+            sectionDiv.className = 'menu-section';
+            sectionDiv.innerHTML = `
+                <div class="menu-section-title"><i class="fas fa-ice-cream"></i> Classic Cones</div>
+                <div class="menu-grid">
+                    ${activeItems.classic.map(item => createMenuItemHTML(item, 'cyan')).join('')}
+                </div>
+            `;
+            container.appendChild(sectionDiv);
+        }
+        
+        // Section 2: Premium Toppings
+        if (activeItems.toppings && activeItems.toppings.length > 0) {
+            const sectionDiv = document.createElement('div');
+            sectionDiv.className = 'menu-section';
+            sectionDiv.innerHTML = `
+                <div class="menu-section-title"><i class="fas fa-star"></i> Cone with Premium Toppings</div>
+                <div class="topping-tabs">
+                    ${CONE_TYPES.map(cone => `
+                        <button class="topping-tab ${cone.toLowerCase() === currentToppingTab ? 'active' : ''}" data-cone="${cone.toLowerCase()}">
+                            ${cone}
+                        </button>
+                    `).join('')}
+                </div>
+                <div class="topping-grid">
+                    ${activeItems.toppings
+                        .filter(item => item.coneType === currentToppingTab)
+                        .map(item => createToppingItemHTML(item))
+                        .join('')}
+                </div>
+            `;
+            container.appendChild(sectionDiv);
+            
+            // Add tab event listeners
+            sectionDiv.querySelectorAll('.topping-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    sectionDiv.querySelectorAll('.topping-tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    currentToppingTab = this.dataset.cone;
+                    renderMenu();
+                });
+            });
+        }
+        
+        // Section 3: Waffle Cones
+        if (activeItems.waffle && activeItems.waffle.length > 0) {
+            const sectionDiv = document.createElement('div');
+            sectionDiv.className = 'menu-section';
+            sectionDiv.innerHTML = `
+                <div class="menu-section-title"><i class="fas fa-waffle"></i> Waffle Cones</div>
+                <div class="menu-grid">
+                    ${activeItems.waffle.map(item => createMenuItemHTML(item, 'blue')).join('')}
+                </div>
+            `;
+            container.appendChild(sectionDiv);
+        }
+        
+        // Attach event listeners
+        container.querySelectorAll('.add-cart-btn[data-id]').forEach(btn => {
+            btn.addEventListener('click', () => addToCart(btn.dataset.id, btn.dataset.name, parseFloat(btn.dataset.price)));
+        });
+    }
+    
+    function createMenuItemHTML(item, colorClass) {
+        return `<div class="menu-card">
+            <img class="menu-img" src="${item.image}" onerror="this.src='https://placehold.co/400x400/f1f5f9/94a3b8?text=Ice+Cream'">
+            <div class="menu-info">
+                <strong>${item.name}</strong>
+                <div class="price-badge">₹${item.price}</div>
+                <button class="add-cart-btn ${colorClass}" data-id="${item.id}" data-name="${item.name}" data-price="${item.price}">
+                    <i class="fas fa-plus"></i> Add
+                </button>
+            </div>
+        </div>`;
+    }
+    
+    function createToppingItemHTML(item) {
+        return `<div class="topping-item">
+            <img class="topping-img" src="${item.image}" onerror="this.src='https://placehold.co/400x400/f1f5f9/94a3b8?text=Ice+Cream'">
+            <div class="topping-info">
+                <span class="topping-name">${item.name}</span>
+                <span class="topping-price">₹${item.price}</span>
+                <button class="add-cart-btn pink" data-id="${item.id}" data-name="${item.name}" data-price="${item.price}">
+                    <i class="fas fa-plus"></i> Add
+                </button>
+            </div>
+        </div>`;
+    }
+    
+    function addToCart(id, name, price) {
+        const existing = cart.find(i => i.snackId === id);
+        if (existing) {
+            existing.quantity++;
+            showToast(`➕ ${name} +1`);
+        } else {
+            cart.push({ snackId: id, name, type: 'Dine-in', quantity: 1, unitPrice: price });
+            showToast(`🍦 ${name} added`);
+        }
+        renderCart();
+        renderKeptAside();
+        updateScrollButton();
+    }
+    
+    function renderCart() {
+        const container = document.getElementById('cartItemsContainer');
+        if (!container) return;
+        if (cart.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;">Cart is empty</div>';
+            document.getElementById('cartGrandTotal').innerHTML = 'Grand Total: ₹0';
+            document.getElementById('cartItemCount').innerText = '0 items';
+            document.getElementById('cartSummaryBreakdown').style.display = 'none';
+            return;
+        }
+        let grandTotal = 0, totalItems = 0, html = '';
+        cart.forEach((item, idx) => {
+            const lineTotal = item.quantity * item.unitPrice;
+            grandTotal += lineTotal;
+            totalItems += item.quantity;
+            html += `<div class="cart-item"><div class="item-row"><span><strong>${item.name}</strong></span><input type="number" class="price-edit-input" data-idx="${idx}" value="${item.unitPrice}" style="width:75px;"></div><div class="flex-between"><div class="qty-controls"><button class="qty-btn" data-idx="${idx}" data-delta="-1">-</button><span>${item.quantity}</span><button class="qty-btn" data-idx="${idx}" data-delta="1">+</button></div><strong>₹${lineTotal}</strong><button class="action-btn delete-cart-item" data-idx="${idx}"><i class="fas fa-trash"></i></button></div></div>`;
+        });
+        container.innerHTML = html;
+        document.getElementById('cartGrandTotal').innerHTML = `Grand Total: ₹${grandTotal}`;
+        document.getElementById('cartItemCount').innerText = `${totalItems} items`;
+        const summaryDiv = document.getElementById('cartSummaryBreakdown');
+        summaryDiv.style.display = 'block';
+        summaryDiv.innerHTML = '<strong>📋 Order Summary</strong>' + cart.map(i => `<div class="summary-item"><span>${i.name} | Qty:${i.quantity}</span><span>₹${i.quantity*i.unitPrice}</span></div>`).join('');
+        
+        document.querySelectorAll('.qty-btn').forEach(btn => {
+            btn.onclick = () => {
+                const idx = parseInt(btn.dataset.idx), delta = parseInt(btn.dataset.delta);
+                if(cart[idx]) {
+                    cart[idx].quantity = Math.max(0, cart[idx].quantity+delta);
+                    if(cart[idx].quantity===0) cart.splice(idx,1);
+                    renderCart();
+                    renderKeptAside();
+                    updateScrollButton();
+                }
+            };
+        });
+        document.querySelectorAll('.price-edit-input').forEach(inp => {
+            inp.onchange = () => {
+                const idx = parseInt(inp.dataset.idx), newP = parseFloat(inp.value);
+                if(cart[idx] && !isNaN(newP) && newP>=0) {
+                    cart[idx].unitPrice = newP;
+                    renderCart();
+                    renderKeptAside();
+                }
+            };
+        });
+        document.querySelectorAll('.delete-cart-item').forEach(btn => {
+            btn.onclick = () => {
+                const idx = parseInt(btn.dataset.idx);
+                cart.splice(idx,1);
+                renderCart();
+                renderKeptAside();
+                updateScrollButton();
+            };
+        });
+    }
+    
+    function keepAsideCurrentCart() {
+        if (cart.length === 0) { showToast("Cart is empty!", true); return; }
+        const asideOrder = {
+            id: Date.now(),
+            items: JSON.parse(JSON.stringify(cart)),
+            grandTotal: cart.reduce((sum, i) => sum + (i.quantity * i.unitPrice), 0),
+            itemCount: cart.reduce((sum, i) => sum + i.quantity, 0),
+            timestamp: new Date().toLocaleString()
+        };
+        keptAsideOrders.push(asideOrder);
+        cart = [];
+        renderCart();
+        renderKeptAside();
+        showToast("Order kept aside! You can start a new cart.");
+        updateScrollButton();
+    }
+    
+    function loadKeptAsideOrder(index) {
+        const order = keptAsideOrders[index];
+        if (!order) return;
+        if (cart.length > 0) {
+            if (!confirm("Current cart has items. Load kept aside order? It will replace current cart.")) return;
+        }
+        cart = JSON.parse(JSON.stringify(order.items));
+        keptAsideOrders.splice(index, 1);
+        renderCart();
+        renderKeptAside();
+        showToast("Kept aside order loaded for editing.");
+        document.getElementById('cartSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        updateScrollButton();
+    }
+    window.loadKeptAsideOrder = loadKeptAsideOrder;
+    
+    function renderKeptAside() {
+        const container = document.getElementById('keptAsideContainer');
+        if (!container) return;
+        if (keptAsideOrders.length === 0) {
+            container.innerHTML = '<div class="kept-aside-empty">No orders kept aside</div>';
+            return;
+        }
+        container.innerHTML = keptAsideOrders.map((order, index) => `
+            <div class="kept-aside-item" onclick="loadKeptAsideOrder(${index})">
+                <div class="aside-header">📦 Order #${index + 1}</div>
+                <div class="aside-items">
+                    ${order.items.map(i => `${i.name} ×${i.quantity}`).join('<br>')}
+                </div>
+                <div class="aside-total">₹${order.grandTotal}</div>
+            </div>
+        `).join('');
+    }
+    
+    async function saveOrder() {
+        const paymentRadio = document.querySelector('input[name="paymentMode"]:checked');
+        if (!paymentRadio) { showToast("Select payment mode", true); return; }
+        if (cart.length === 0) { showToast("Cart empty!", true); return; }
+        if (!confirm("Save order?")) return;
+        const customerName = document.getElementById('customerNameInput').value.trim() || "";
+        const paymentMode = paymentRadio.value;
+        const { date, time } = getISTDateTime();
+        const ts = Date.now();
+        const cartId = `cart_${ts}_${customerName}`;
+        const updates = {};
+        for (let item of cart) {
+            const key = salesRef.push().key;
+            const saleData = {
+                id: key, 
+                cartId: cartId, 
+                date: date, 
+                time: time, 
+                snackName: item.name, 
+                saleType: item.type || 'Dine-in',
+                quantity: item.quantity, 
+                unitPrice: item.unitPrice, 
+                totalAmount: item.quantity * item.unitPrice,
+                createdAt: ts, 
+                paymentMode: paymentMode, 
+                customerName: customerName, 
+                mixItems: null
+            };
+            updates[key] = saleData;
+        }
+        try {
+            await salesRef.update(updates);
+            showToast("✅ Order saved successfully!");
+            cart = [];
+            document.getElementById('customerNameInput').value = '';
+            document.querySelectorAll('input[name="paymentMode"]').forEach(r => r.checked = false);
+            renderCart();
+            renderKeptAside();
+            await loadAllSales();
+            updateScrollButton();
+        } catch (err) {
+            console.error("Save error:", err);
+            showToast("Error saving: " + err.message, true);
+        }
+    }
+    
+    async function deleteCart(cartObj) { 
+        if (!confirm(`Delete entire order for ${cartObj.customerName}?`)) return; 
+        try { 
+            const updates = {}; 
+            for (let saleId of cartObj.cartSaleIds) updates[`/${saleId}`] = null; 
+            await salesRef.update(updates); 
+            showToast("Order deleted!"); 
+            await loadAllSales(); 
+        } catch (err) { 
+            showToast("Delete failed: " + err.message, true); 
+        } 
+    }
+    
+    async function editCart(cartObj) {
+        const modal = document.createElement('div'); 
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `<div class="modal-content"><h3 style="color:#0e7490;">Edit Order</h3><label>Customer Name:</label><input type="text" id="editCustomerName" value="${cartObj.customerName}"><label>Payment Mode:</label><select id="editPaymentMode"><option value="cash" ${cartObj.paymentMode === 'cash' ? 'selected' : ''}>Cash</option><option value="online" ${cartObj.paymentMode === 'online' ? 'selected' : ''}>Online</option><option value="pending" ${cartObj.paymentMode === 'pending' ? 'selected' : ''}>Pending</option><option value="nopayment" ${cartObj.paymentMode === 'nopayment' ? 'selected' : ''}>No Payment</option></select><h4>Items:</h4>${cartObj.items.map((item, idx) => `<div style="border:1px solid #e2e8f0; border-radius:16px; padding:10px; margin:8px 0;"><strong>${item.name}</strong><br>Qty: <input type="number" class="edit-item-qty" data-idx="${idx}" value="${item.quantity}" min="1" style="width:60px;"> Price: ₹<input type="number" class="edit-item-price" data-idx="${idx}" value="${item.unitPrice}" min="0" style="width:80px;"></div>`).join('')}<div class="modal-buttons"><button id="saveCartEditBtn" style="background:#db2777;color:white;">Save</button><button id="cancelCartEditBtn">Cancel</button></div></div>`;
+        document.body.appendChild(modal);
+        document.getElementById('saveCartEditBtn').onclick = async () => {
+            const newCustomerName = document.getElementById('editCustomerName').value.trim() || "Guest";
+            const newPaymentMode = document.getElementById('editPaymentMode').value;
+            const updates = {};
+            const newQuantities = {}, newPrices = {};
+            document.querySelectorAll('.edit-item-qty').forEach(inp => { newQuantities[parseInt(inp.dataset.idx)] = parseInt(inp.value); });
+            document.querySelectorAll('.edit-item-price').forEach(inp => { newPrices[parseInt(inp.dataset.idx)] = parseFloat(inp.value); });
+            for (let i = 0; i < cartObj.items.length; i++) {
+                const item = cartObj.items[i];
+                const newQty = newQuantities[i], newPrice = newPrices[i];
+                if (isNaN(newQty) || newQty < 1 || isNaN(newPrice) || newPrice < 0) { showToast("Invalid", true); return; }
+                const existingSale = allSales.find(s => s.id === item.id);
+                if (existingSale) {
+                    updates[`/${item.id}`] = { 
+                        ...existingSale, 
+                        quantity: newQty, 
+                        unitPrice: newPrice, 
+                        totalAmount: newQty * newPrice, 
+                        customerName: newCustomerName, 
+                        paymentMode: newPaymentMode 
+                    };
+                }
+            }
+            try { 
+                await salesRef.update(updates); 
+                showToast("Updated!"); 
+                document.body.removeChild(modal); 
+                await loadAllSales(); 
+            } catch (err) { 
+                showToast("Update failed: " + err.message, true); 
+            }
+        };
+        document.getElementById('cancelCartEditBtn').onclick = () => document.body.removeChild(modal);
+    }
+    
+    function groupIntoCarts() {
+        let filteredSales = allSales;
+        if (currentFilter.fromDate) filteredSales = filteredSales.filter(s => s.date >= currentFilter.fromDate);
+        if (currentFilter.toDate) filteredSales = filteredSales.filter(s => s.date <= currentFilter.toDate);
+        if (currentPaymentFilter !== "all") filteredSales = filteredSales.filter(s => s.paymentMode === currentPaymentFilter);
+        if (currentSearchTerm) {
+            const term = currentSearchTerm.toLowerCase();
+            filteredSales = filteredSales.filter(s => (s.customerName && s.customerName.toLowerCase().includes(term)) || s.snackName.toLowerCase().includes(term));
+        }
+        const carts = new Map();
+        for (let sale of filteredSales) {
+            const cartKey = sale.cartId || `${sale.createdAt}_${sale.customerName || 'Guest'}_${sale.time}`;
+            if (!carts.has(cartKey)) carts.set(cartKey, { id: cartKey, date: sale.date, time: sale.time, customerName: sale.customerName || 'Guest', paymentMode: sale.paymentMode || 'pending', items: [], grandTotal: 0, createdAt: sale.createdAt, cartSaleIds: [] });
+            const cart = carts.get(cartKey);
+            cart.items.push({ id: sale.id, name: sale.snackName, type: sale.saleType, quantity: sale.quantity, unitPrice: sale.unitPrice, total: sale.totalAmount });
+            cart.cartSaleIds.push(sale.id);
+            cart.grandTotal += sale.totalAmount;
+            cart.date = sale.date;
+            cart.time = sale.time;
+        }
+        return Array.from(carts.values()).sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+    }
+    
+    function renderCartHistory() {
+        const carts = groupIntoCarts();
+        const totalPages = Math.max(1, Math.ceil(carts.length / CART_PAGE_SIZE));
+        if (cartHistoryPage > totalPages) cartHistoryPage = totalPages;
+        const start = (cartHistoryPage - 1) * CART_PAGE_SIZE;
+        const pageCarts = carts.slice(start, start + CART_PAGE_SIZE);
+        const container = document.getElementById('cartHistoryContainer');
+        if (!container) return;
+        if (pageCarts.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;">No orders found</div>';
+            document.getElementById('cartPagination').innerHTML = '';
+            return;
+        }
+        container.innerHTML = pageCarts.map(c => `<div class="cart-order-card ${c.paymentMode === 'cash' ? 'cash-bg' : (c.paymentMode === 'online' ? 'online-bg' : (c.paymentMode === 'pending' ? 'pending-bg' : 'nopayment-bg'))}"><div class="flex-between"><span><i class="fas fa-calendar"></i> ${formatDateDMY(c.date)} | ${c.time}</span><span class="badge">${c.paymentMode === 'cash' ? '💵 Cash' : (c.paymentMode === 'online' ? '💳 Online' : (c.paymentMode === 'pending' ? '⏳ Pending' : '🚫 No Payment'))}</span></div><div><i class="fas fa-user"></i> ${c.customerName}</div><div class="summary-list" style="margin-top:8px; background:white;">${c.items.map(i => `<div class="summary-item"><span>${i.name} | Qty: ${i.quantity}</span><span>₹${i.total}</span></div>`).join('')}</div><div class="grand-total" style="border:none;">Grand Total: ₹${c.grandTotal}</div><div class="flex-between" style="margin-top:12px;"><button class="action-btn edit-btn" data-cart-idx="${carts.indexOf(c)}"><i class="fas fa-edit"></i> Edit</button><button class="action-btn delete-btn" data-cart-idx="${carts.indexOf(c)}"><i class="fas fa-trash-alt"></i> Delete</button></div></div>`).join('');
+        const paginationHtml = `<button class="page-nav-btn" id="prevPageBtn" ${cartHistoryPage === 1 ? 'disabled style="opacity:0.5;"' : ''}><i class="fas fa-chevron-left"></i> Previous</button><span class="page-btn active">${cartHistoryPage} / ${totalPages}</span><button class="page-nav-btn" id="nextPageBtn" ${cartHistoryPage === totalPages ? 'disabled style="opacity:0.5;"' : ''}>Next <i class="fas fa-chevron-right"></i></button>`;
+        document.getElementById('cartPagination').innerHTML = paginationHtml;
+        document.getElementById('prevPageBtn')?.addEventListener('click', () => { if (cartHistoryPage > 1) { cartHistoryPage--; renderCartHistory(); } });
+        document.getElementById('nextPageBtn')?.addEventListener('click', () => { if (cartHistoryPage < totalPages) { cartHistoryPage++; renderCartHistory(); } });
+        const allCarts = carts;
+        document.querySelectorAll('.edit-btn').forEach(btn => { btn.onclick = () => { const idx = parseInt(btn.dataset.cartIdx); editCart(allCarts[idx]); }; });
+        document.querySelectorAll('.delete-btn').forEach(btn => { btn.onclick = () => { const idx = parseInt(btn.dataset.cartIdx); deleteCart(allCarts[idx]); }; });
+    }
+    
+    function updateDashboardWithFilter() {
+        let filtered = allSales;
+        if (currentFilter.fromDate) filtered = filtered.filter(s => s.date >= currentFilter.fromDate);
+        if (currentFilter.toDate) filtered = filtered.filter(s => s.date <= currentFilter.toDate);
+        let totalSalesQty = 0, totalRevenue = 0, cashTotal = 0, onlineTotal = 0, pendingTotal = 0, noPaymentTotal = 0;
+        for (let s of filtered) {
+            totalSalesQty += Number(s.quantity);
+            if (s.paymentMode !== 'pending' && s.paymentMode !== 'nopayment') totalRevenue += Number(s.totalAmount);
+            if(s.paymentMode === 'cash') cashTotal += Number(s.totalAmount);
+            else if(s.paymentMode === 'online') onlineTotal += Number(s.totalAmount);
+            else if(s.paymentMode === 'pending') pendingTotal += Number(s.totalAmount);
+            else if(s.paymentMode === 'nopayment') noPaymentTotal += Number(s.totalAmount);
+        }
+        document.getElementById('totalSalesCount').innerText = totalSalesQty;
+        document.getElementById('totalRevenueAmount').innerText = `₹${totalRevenue}`;
+        document.getElementById('cashPaymentTotal').innerHTML = `₹${cashTotal}`;
+        document.getElementById('onlinePaymentTotal').innerHTML = `₹${onlineTotal}`;
+        document.getElementById('pendingPaymentTotal').innerHTML = `₹${pendingTotal}`;
+        document.getElementById('noPaymentTotal').innerHTML = `₹${noPaymentTotal}`;
+        updateSnackSummaryTable(filtered);
+    }
+    
+    function updateSnackSummaryTable(filteredSales = allSales) {
+        const summary = new Map();
+        const itemNames = new Set();
+        filteredSales.forEach(s => itemNames.add(s.snackName));
+        itemNames.forEach(name => summary.set(name, { quantity: 0, revenue: 0 }));
+        
+        for (let sale of filteredSales) {
+            let stat = summary.get(sale.snackName);
+            if (stat) {
+                stat.quantity += Number(sale.quantity);
+                if (sale.paymentMode !== 'pending' && sale.paymentMode !== 'nopayment') {
+                    stat.revenue += Number(sale.totalAmount);
+                }
+            }
+        }
+        const tbody = document.getElementById('snackSummaryBody');
+        if (!tbody) return;
+        if (filteredSales.length === 0) { tbody.innerHTML = '<tr><td colspan="3">No data</td></tr>'; return; }
+        tbody.innerHTML = '';
+        for (let [name, stat] of summary.entries()) {
+            let row = tbody.insertRow();
+            row.insertCell(0).innerText = name;
+            row.insertCell(1).innerText = stat.quantity;
+            row.insertCell(2).innerHTML = `<strong>₹${Math.round(stat.revenue)}</strong>`;
+        }
+    }
+    
+    async function loadAllSales() {
+        try {
+            const snap = await salesRef.once('value');
+            const data = snap.val();
+            allSales = data ? Object.values(data).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)) : [];
+            updateDashboardWithFilter();
+            renderCartHistory();
+            updateGraphs();
+        } catch (err) {
+            console.error("Load error:", err);
+            showToast("Error loading data: " + err.message, true);
+        }
+    }
+    
+    function updateGraphs() {
+        const selectedMonth = parseInt(document.getElementById('monthSelect').value);
+        const selectedYear = parseInt(document.getElementById('yearSelect').value);
+        const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+        const dailyRevenue = new Array(daysInMonth).fill(0);
+        const dailyCount = new Array(daysInMonth).fill(0);
+        const heatmapData = {};
+        const timeSlots = ['5-6 PM', '6-7 PM', '7-8 PM', '8-9 PM', '9-10 PM', '10-11 PM', '11-12 PM', '12-1 AM'];
+        
+        for (let sale of allSales) {
+            const saleDate = new Date(sale.date);
+            if (saleDate.getMonth() === selectedMonth && saleDate.getFullYear() === selectedYear && sale.paymentMode !== 'pending' && sale.paymentMode !== 'nopayment') {
+                const day = saleDate.getDate() - 1;
+                dailyRevenue[day] += sale.totalAmount;
+                dailyCount[day] += sale.quantity;
+                const hour = parseInt(sale.time.split(':')[0]);
+                let slotIndex = -1;
+                if (hour >= 17 && hour < 18) slotIndex = 0;
+                else if (hour >= 18 && hour < 19) slotIndex = 1;
+                else if (hour >= 19 && hour < 20) slotIndex = 2;
+                else if (hour >= 20 && hour < 21) slotIndex = 3;
+                else if (hour >= 21 && hour < 22) slotIndex = 4;
+                else if (hour >= 22 && hour < 23) slotIndex = 5;
+                else if (hour >= 23 && hour < 24) slotIndex = 6;
+                else if (hour >= 0 && hour < 1) slotIndex = 7;
+                if (slotIndex !== -1) {
+                    const key = `${saleDate.getDate()}_${slotIndex}`;
+                    heatmapData[key] = (heatmapData[key] || 0) + sale.quantity;
+                }
+            }
+        }
+        
+        const labels = Array.from({length: daysInMonth}, (_, i) => i + 1);
+        if (revenueChart) revenueChart.destroy();
+        revenueChart = new Chart(document.getElementById('revenueChart'), {
+            type: 'line',
+            data: { labels, datasets: [{ label: 'Revenue (₹)', data: dailyRevenue, borderColor: '#0891b2', backgroundColor: 'rgba(8,145,178,0.1)', fill: true, tension: 0.3 }] },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+        });
+        if (combinedChart) combinedChart.destroy();
+        combinedChart = new Chart(document.getElementById('combinedChart'), {
+            type: 'bar',
+            data: { labels, datasets: [{ label: 'Sales Count', data: dailyCount, backgroundColor: '#db2777', borderRadius: 8 }] },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'Count' } }, x: { title: { display: true, text: 'Day of Month' } } } }
+        });
+        
+        let heatmapHtml = '<thead><tr><th>Day/Time</th>' + timeSlots.map(s => `<th style="font-size:9px;">${s}</th>`).join('') + '</tr></thead><tbody>';
+        for (let day = 1; day <= daysInMonth; day++) {
+            heatmapHtml += `<tr><td><strong>${day}</strong></td>`;
+            for (let slot = 0; slot < timeSlots.length; slot++) {
+                const value = heatmapData[`${day}_${slot}`] || 0;
+                let color = '#f8fafc';
+                if (value > 20) color = '#dc2626';
+                else if (value > 10) color = '#db2777';
+                else if (value > 5) color = '#f97316';
+                else if (value > 0) color = '#86efac';
+                heatmapHtml += `<td class="heatmap-cell" style="background:${color}; font-weight:${value > 0 ? 'bold' : 'normal'}">${value || '-'}</td>`;
+            }
+            heatmapHtml += '</tr>';
+        }
+        heatmapHtml += '</tbody>';
+        document.getElementById('heatmapTable').innerHTML = heatmapHtml;
+    }
+    
+    function populateYearSelect() {
+        const currentYear = new Date().getFullYear();
+        const yearSelect = document.getElementById('yearSelect');
+        yearSelect.innerHTML = '';
+        for (let y = currentYear - 2; y <= currentYear + 2; y++) {
+            const option = document.createElement('option');
+            option.value = y;
+            option.textContent = y;
+            if (y === currentYear) option.selected = true;
+            yearSelect.appendChild(option);
+        }
+    }
+    
+    function populateMonthSelect() {
+        const monthSelect = document.getElementById('monthSelect');
+        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        monthSelect.innerHTML = '';
+        months.forEach((m, idx) => {
+            const option = document.createElement('option');
+            option.value = idx;
+            option.textContent = m;
+            if (idx === new Date().getMonth()) option.selected = true;
+            monthSelect.appendChild(option);
+        });
+    }
+    
+    function applyFilter() {
+        currentFilter = { fromDate: document.getElementById('filterFromDate').value, toDate: document.getElementById('filterToDate').value };
+        cartHistoryPage = 1;
+        updateDashboardWithFilter();
+        renderCartHistory();
+    }
+    
+    function resetFilter() {
+        const today = getTodayDate();
+        document.getElementById('filterFromDate').value = today;
+        document.getElementById('filterToDate').value = today;
+        currentFilter = { fromDate: today, toDate: today };
+        cartHistoryPage = 1;
+        updateDashboardWithFilter();
+        renderCartHistory();
+    }
+    
+    // Scroll to cart button
+    const scrollBtn = document.getElementById('scrollToCartBtn');
+    const cartSection = document.getElementById('cartSection');
+    
+    function updateScrollButton() {
+        const tab1 = document.getElementById('tab1');
+        if (!tab1 || !tab1.classList.contains('active')) {
+            scrollBtn.classList.add('hidden');
+            return;
+        }
+        if (cart.length === 0) {
+            scrollBtn.classList.add('hidden');
+            return;
+        }
+        const rect = cartSection.getBoundingClientRect();
+        const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
+        if (!isVisible) {
+            scrollBtn.classList.remove('hidden');
+        } else {
+            scrollBtn.classList.add('hidden');
+        }
+    }
+    
+    scrollBtn.addEventListener('click', () => {
+        cartSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    
+    window.addEventListener('scroll', updateScrollButton);
+    window.addEventListener('resize', updateScrollButton);
+    
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(btn.dataset.tab).classList.add('active');
+            if (btn.dataset.tab === 'tab2') renderCartHistory();
+            if (btn.dataset.tab === 'tab3') updateGraphs();
+            setTimeout(updateScrollButton, 200);
+        });
+    });
+    
+    document.getElementById('saveOrderBtn')?.addEventListener('click', saveOrder);
+    document.getElementById('keepAsideBtn')?.addEventListener('click', keepAsideCurrentCart);
+    document.getElementById('applyDateFilterBtn')?.addEventListener('click', applyFilter);
+    document.getElementById('resetFilterBtn')?.addEventListener('click', resetFilter);
+    document.getElementById('refreshGraphsBtn')?.addEventListener('click', updateGraphs);
+    document.getElementById('summaryAccordionHeader')?.addEventListener('click', () => {
+        document.getElementById('accordionContent').classList.toggle('open');
+        document.getElementById('accordionIcon').classList.toggle('rotated');
+    });
+    document.getElementById('cartSearchInput')?.addEventListener('input', (e) => {
+        currentSearchTerm = e.target.value;
+        cartHistoryPage = 1;
+        renderCartHistory();
+    });
+    document.querySelectorAll('.payment-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.payment-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentPaymentFilter = btn.dataset.filter;
+            cartHistoryPage = 1;
+            renderCartHistory();
+        });
+    });
+    document.getElementById('manageMenuBtn')?.addEventListener('click', openMenuManager);
+    
+    const today = getTodayDate();
+    document.getElementById('filterFromDate').value = today;
+    document.getElementById('filterToDate').value = today;
+    currentFilter = { fromDate: today, toDate: today };
+    populateMonthSelect();
+    populateYearSelect();
+    loadDailyMenu();
+    renderCart();
+    renderKeptAside();
+    loadAllSales();
+    setInterval(() => {
+        document.getElementById('currentDateDisplay').innerHTML = `📅 ${getISTDateTime().date}`;
+    }, 60000);
+    document.getElementById('currentDateDisplay').innerHTML = `📅 ${getISTDateTime().date}`;
+    setTimeout(updateScrollButton, 500);
+</script>
+</body>
+</html>
